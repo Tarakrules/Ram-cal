@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronsUpDown, Calculator, LoaderCircle, PieChart as PieChartIcon, Table, Percent, Banknote, Calendar, Coins, Diamond } from 'lucide-react';
+import { ChevronsUpDown, Calculator, PieChart as PieChartIcon, Table, Percent, Banknote, Calendar, Coins } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 // --- Helper Functions & Constants ---
@@ -17,6 +17,24 @@ const formatPercentage = (value) => {
     return `${value.toFixed(2)} %`;
 };
 
+// --- Number to Words Conversion (Indian System) ---
+const toIndianWords = (numStr) => {
+    const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
+    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    const s = numStr.toString();
+    if (s.length > 9) return 'Overflow';
+    const n = (`000000000${s}`).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
+    if (!n) return '';
+    let str = '';
+    str += (n[1] != 0) ? (a[Number(n[1])] || `${b[n[1][0]]} ${a[n[1][1]]}`) + 'Crore ' : '';
+    str += (n[2] != 0) ? (a[Number(n[2])] || `${b[n[2][0]]} ${a[n[2][1]]}`) + 'Lakh ' : '';
+    str += (n[3] != 0) ? (a[Number(n[3])] || `${b[n[3][0]]} ${a[n[3][1]]}`) + 'Thousand ' : '';
+    str += (n[4] != 0) ? (a[Number(n[4])] || `${b[n[4][0]]} ${a[n[4][1]]}`) + 'Hundred ' : '';
+    str += (n[5] != 0) ? ((str !== '') ? 'and ' : '') + (a[Number(n[5])] || `${b[n[5][0]]} ${a[n[5][1]]}`) : '';
+    return str.trim();
+};
+
+
 // --- Common UI Components ---
 const InputField = ({ label, id, value, onChange, placeholder, type = "number", disabled = false, icon: Icon }) => (
     <div>
@@ -28,6 +46,33 @@ const InputField = ({ label, id, value, onChange, placeholder, type = "number", 
         </div>
     </div>
 );
+
+// New component for amount inputs with word display
+const AmountInput = ({ label, id, value, onChange, placeholder, icon: Icon }) => {
+    const [words, setWords] = useState('');
+
+    const handleChange = (e) => {
+        const numValue = e.target.value;
+        onChange(e); // Pass the event up to the parent component
+        const parsedNum = parseInt(numValue.replace(/,/g, ''), 10);
+        if (!isNaN(parsedNum) && numValue.length > 0 && numValue.length < 16) {
+            setWords(toIndianWords(parsedNum));
+        } else {
+            setWords('');
+        }
+    };
+    
+    return (
+        <div>
+            <InputField label={label} id={id} value={value} onChange={handleChange} placeholder={placeholder} icon={Icon} />
+            {words && 
+                <p className="text-right text-xs font-semibold text-indigo-600 pt-1 pr-1 h-4">
+                    {words}
+                </p>
+            }
+        </div>
+    );
+};
 
 const CustomSelect = ({ label, value, onChange, options, disabled = false }) => (
     <div className="relative">
@@ -93,7 +138,18 @@ const InterestCalculator = () => {
 
         if (mode === 'SIMPLE') {
             let annualRate, totalInterest;
-            const tenureInYears = tenureType === 'Months' ? t / 12 : t;
+            let tenureInYears;
+            switch(tenureType) {
+                case 'Months':
+                    tenureInYears = t / 12;
+                    break;
+                case 'Days':
+                    tenureInYears = t / 365;
+                    break;
+                default: // 'Years'
+                    tenureInYears = t;
+            }
+            
             if (interestType === '%') {
                 annualRate = r;
                 totalInterest = (p * annualRate * tenureInYears) / 100;
@@ -103,9 +159,10 @@ const InterestCalculator = () => {
                 totalInterest = (p * r * tenureInMonths) / 100;
             }
             setResults({ mode: 'SIMPLE', principal: p, totalInterest, totalAmount: p + totalInterest });
-        } else {
+        } else { // COMPOUND
             const n = parseFloat(frequency);
-            const totalAmount = p * Math.pow((1 + (r / 100) / n), n * t);
+            const annualRate = interestType === '%' ? r : r * 12;
+            const totalAmount = p * Math.pow((1 + (annualRate / 100) / n), n * t);
             const totalInterest = totalAmount - p;
             setResults({ mode: 'COMPOUND', principal: p, totalInterest, totalAmount });
         }
@@ -116,21 +173,19 @@ const InterestCalculator = () => {
             <div className="bg-white/60 backdrop-blur-sm p-6 sm:p-8 rounded-xl shadow-md border border-gray-200">
                 <form onSubmit={handleSubmit} className="space-y-5">
                     <ToggleButton options={{'SIMPLE': 'Simple Interest', 'COMPOUND': 'Compound Interest'}} selected={mode} onSelect={handleModeChange}/>
-                    <InputField label="Principal Amount" id="i-principal" value={principal} onChange={(e) => setPrincipal(e.target.value)} placeholder="e.g., 100000" icon={Banknote}/>
+                    <AmountInput label="Principal Amount" id="i-principal" value={principal} onChange={(e) => setPrincipal(e.target.value)} placeholder="e.g., 100000" icon={Banknote}/>
                     
-                    {mode === 'SIMPLE' ? (
-                        <div className="grid grid-cols-3 gap-3">
-                            <div className="col-span-2">
-                                <InputField label={interestType === '%' ? 'Interest Rate (p.a.)' : 'Interest (₹ per 100/mo)'} id="si-interest" value={rate} onChange={(e) => setRate(e.target.value)} placeholder={interestType === '%' ? 'e.g., 8.5' : 'e.g., 1.5'} icon={Percent}/>
-                            </div>
-                            <div className="col-span-1"><CustomSelect label="Type" value={interestType} onChange={setInterestType} options={{ '%': '%', '₹': '₹' }} /></div>
+                    <div className="grid grid-cols-3 gap-3">
+                        <div className="col-span-2">
+                           <InputField label={interestType === '%' ? 'Annual Interest Rate (%)' : 'Interest (₹ per 100/mo)'} id="si-interest" value={rate} onChange={(e) => setRate(e.target.value)} placeholder={interestType === '%' ? 'e.g., 8.5' : 'e.g., 1.5'} icon={Percent}/>
                         </div>
-                    ) : ( <InputField label="Annual Interest Rate (%)" id="ci-rate" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="e.g., 12" icon={Percent}/> )}
+                         <div className="col-span-1"><CustomSelect label="Type" value={interestType} onChange={setInterestType} options={{ '%': '%', '₹': '₹' }} /></div>
+                    </div>
 
                     {mode === 'SIMPLE' ? (
                          <div className="grid grid-cols-3 gap-3">
                             <div className="col-span-2"><InputField label="Tenure" id="si-tenure" value={tenure} onChange={(e) => setTenure(e.target.value)} placeholder="e.g., 5" icon={Calendar}/></div>
-                            <div className="col-span-1"><CustomSelect label="Unit" value={tenureType} onChange={setTenureType} options={{'Years':'Years', 'Months':'Months'}} /></div>
+                            <div className="col-span-1"><CustomSelect label="Unit" value={tenureType} onChange={setTenureType} options={{'Years':'Years', 'Months':'Months', 'Days': 'Daily'}} /></div>
                         </div>
                     ) : (
                         <>
@@ -232,7 +287,7 @@ const EMICalculator = () => {
             <div className="lg:col-span-2 bg-white/60 backdrop-blur-sm p-6 sm:p-8 rounded-xl shadow-md border border-gray-200">
                 <h3 className="text-2xl font-semibold text-gray-700 mb-6">EMI Details</h3>
                 <form onSubmit={handleSubmit} className="space-y-5">
-                    <InputField label="Loan Amount" id="emi-principal" value={principal} onChange={(e) => setPrincipal(e.target.value)} placeholder="e.g., 500000" icon={Banknote}/>
+                    <AmountInput label="Loan Amount" id="emi-principal" value={principal} onChange={(e) => setPrincipal(e.target.value)} placeholder="e.g., 500000" icon={Banknote}/>
                     <InputField label="Annual Interest Rate (%)" id="emi-rate" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="e.g., 9.5" icon={Percent}/>
                     <div className="grid grid-cols-3 gap-3">
                         <div className="col-span-2"><InputField label="Tenure" id="emi-tenure" value={tenure} onChange={(e) => setTenure(e.target.value)} placeholder="e.g., 20" icon={Calendar}/></div>
@@ -301,7 +356,7 @@ const ChitFundCalculator = () => {
             <div className="bg-white/60 backdrop-blur-sm p-6 sm:p-8 rounded-xl shadow-md border border-gray-200">
                 <h3 className="text-2xl font-semibold text-gray-700 mb-6">Chit Fund Details</h3>
                 <form onSubmit={handleSubmit} className="space-y-5">
-                    <InputField label="Total Chit Amount (Pot)" id="cf-value" value={chitValue} onChange={(e) => setChitValue(e.target.value)} placeholder="e.g., 100000" icon={Banknote}/>
+                    <AmountInput label="Total Chit Amount (Pot)" id="cf-value" value={chitValue} onChange={(e) => setChitValue(e.target.value)} placeholder="e.g., 100000" icon={Banknote}/>
                     <InputField label="Number of Members (Duration in Months)" id="cf-members" value={members} onChange={(e) => setMembers(e.target.value)} placeholder="e.g., 20" icon={Calendar}/>
                     <InputField label="Foreman's Commission (%)" id="cf-commission" value={commission} onChange={(e) => setCommission(e.target.value)} placeholder="Standard is 5%" icon={Percent}/>
                     <InputField label="Your Auction Bid Discount (%)" id="cf-bid" value={bidDiscount} onChange={(e) => setBidDiscount(e.target.value)} placeholder="e.g., 30 (Max is 40%)" icon={Percent}/>
@@ -326,100 +381,12 @@ const ChitFundCalculator = () => {
     );
 };
 
-// --- Gold Price Checker (with Live Data) ---
-const GoldPriceChecker = () => {
-    const [prices, setPrices] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState(null);
-
-    useEffect(() => {
-        const fetchGoldPrices = async () => {
-            setIsLoading(true);
-            setError(null);
-            const API_URL = "https://api.allorigins.win/get?url=https%3A//www.goodreturns.in/gold-rates/rajahmundry.html";
-            
-            try {
-                const response = await fetch(API_URL);
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
-                }
-                const data = await response.json();
-                const htmlContent = data.contents;
-                
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(htmlContent, 'text/html');
-                
-                const getPrice = (selector) => {
-                    const element = doc.querySelector(selector);
-                    if (!element) return null;
-                    return parseFloat(element.textContent.replace(/[₹,]/g, ''));
-                };
-
-                const price22k = getPrice('.gold_rate_body_22_k > .gold_rate_body_22_k_rate');
-                const price24k = getPrice('.gold_rate_body_24_k > .gold_rate_body_24_k_rate');
-                
-                if (!price22k || !price24k) {
-                     throw new Error("Could not parse gold prices from the source page.");
-                }
-
-                setPrices({
-                    '24k': price24k,
-                    '22k': price22k,
-                    lastUpdated: new Date().toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'short' })
-                });
-
-            } catch (err) {
-                setError('Could not retrieve live gold prices. Please try again later.');
-                console.error("Gold Price API Error:", err);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchGoldPrices();
-    }, []);
-
-    const PriceDisplayCard = ({ title, ratePerGram }) => (
-        <div className="bg-white/60 backdrop-blur-sm p-6 rounded-xl shadow-md border border-gray-200">
-            <h3 className="text-2xl font-semibold text-amber-600 mb-4">{title}</h3>
-            <div className="space-y-3">
-                <div className="flex justify-between items-baseline p-3 bg-amber-50 rounded-lg"><span className="text-gray-600 font-medium">1 Gram</span><span className="text-xl font-bold text-gray-900">{formatCurrency(ratePerGram)}</span></div>
-                <div className="flex justify-between items-baseline p-3 bg-amber-50 rounded-lg"><span className="text-gray-600 font-medium">8 Grams</span><span className="text-xl font-bold text-gray-900">{formatCurrency(ratePerGram * 8)}</span></div>
-                <div className="flex justify-between items-baseline p-3 bg-amber-50 rounded-lg"><span className="text-gray-600 font-medium">10 Grams</span><span className="text-xl font-bold text-gray-900">{formatCurrency(ratePerGram * 10)}</span></div>
-            </div>
-        </div>
-    );
-    
-    if (isLoading) {
-        return <div className="flex justify-center items-center p-10"><LoaderCircle className="h-8 w-8 animate-spin text-indigo-600" /> <span className="ml-4 text-gray-600">Fetching Live Gold Prices...</span></div>;
-    }
-
-    if (error) {
-        return <div className="text-center p-10 bg-red-50 text-red-700 rounded-lg">{error}</div>;
-    }
-
-    return (
-        <div>
-            <div className="text-center mb-6">
-                 <h2 className="text-2xl font-semibold text-gray-800">Today's Gold Rate in Rajahmundry</h2>
-                 <p className="text-sm text-gray-500 mt-1">Last updated: {prices.lastUpdated}</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <PriceDisplayCard title="24 Karat Gold (99.9% Pure)" ratePerGram={prices['24k']} />
-                <PriceDisplayCard title="22 Karat Gold (91.6% Pure)" ratePerGram={prices['22k']} />
-            </div>
-            <p className="text-center text-xs text-gray-500 mt-6">*All prices are indicative and do not include GST, TCS, or other levies. Please contact your local jeweller for exact rates.</p>
-        </div>
-    );
-};
-
 // --- Main App Component ---
 export default function App() {
     const TABS = {
         INTEREST: { name: 'Interest Calculator', component: InterestCalculator, icon: Coins },
         CHIT: { name: 'Chit Fund', component: ChitFundCalculator, icon: Banknote },
         EMI: { name: 'EMI Calculator', component: EMICalculator, icon: Table },
-        GOLD: { name: 'Gold Rate', component: GoldPriceChecker, icon: Diamond }
     };
     const [activeTab, setActiveTab] = useState('INTEREST');
     const ActiveComponent = TABS[activeTab].component;
