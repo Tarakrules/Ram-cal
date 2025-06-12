@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronsUpDown, Calculator, PieChart as PieChartIcon, Table, Percent, Banknote, Calendar, Coins, Sparkles, LoaderCircle, LineChart as LineChartIcon, TrendingUp } from 'lucide-react';
+import { ChevronsUpDown, Calculator, PieChart as PieChartIcon, Table, Percent, Banknote, Calendar, Coins, LineChart as LineChartIcon, TrendingUp } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 // --- Translation Data ---
@@ -318,24 +318,6 @@ const ResultCard = ({ label, value, isHighlighted = false, words, lang }) => (
     </div>
 );
 
-
-const AiAnalysisSection = ({ analysis, isLoading, error, onAnalyze, resultsAvailable }) => (
-     <div className="mt-6">
-        <button onClick={onAnalyze} disabled={isLoading || !resultsAvailable}
-            className="w-full flex items-center justify-center bg-purple-600 text-white font-bold py-3 px-4 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition shadow-md disabled:bg-purple-300 disabled:cursor-not-allowed">
-            {isLoading ? <LoaderCircle className="h-5 w-5 mr-2 animate-spin" /> : <Sparkles className="h-5 w-5 mr-2" />}
-            {isLoading ? 'Analyzing...' : '✨ Analyze with AI'}
-        </button>
-        {(analysis || isLoading || error) && (
-            <div className="mt-4 p-5 rounded-lg bg-gray-100 border border-gray-200">
-                 {isLoading && <div className="flex items-center justify-center text-gray-600"><LoaderCircle className="h-6 w-6 animate-spin mr-3" /><span>Thinking...</span></div>}
-                 {error && <p className="text-red-600 bg-red-50 p-3 rounded-md">{error}</p>}
-                 {analysis && !isLoading && <div className="text-gray-700 space-y-2" style={{ whiteSpace: 'pre-wrap' }}>{analysis}</div>}
-            </div>
-        )}
-    </div>
-);
-
 // --- Combined Interest Calculator ---
 const InterestCalculator = ({t, lang}) => {
     const [mode, setMode] = useState('SIMPLE');
@@ -347,18 +329,15 @@ const InterestCalculator = ({t, lang}) => {
     const [frequency, setFrequency] = useState('1');
     const [error, setError] = useState('');
     const [results, setResults] = useState(null);
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [analysisResult, setAnalysisResult] = useState('');
-    const [analysisError, setAnalysisError] = useState('');
 
     const compoundingFrequencies = {'12': 'Monthly', '4': 'Quarterly', '2': 'Half-Yearly', '1': 'Annually' };
 
     const handleModeChange = (newMode) => {
-        setMode(newMode); setResults(null); setError(''); setAnalysisResult('');
+        setMode(newMode); setResults(null); setError('');
     }
 
     const handleSubmit = (e) => {
-        e.preventDefault(); setResults(null); setAnalysisResult('');
+        e.preventDefault(); setResults(null);
         const p = parseFloat(principal), r = parseFloat(rate), t_val = parseFloat(tenure);
         if (isNaN(p) || p <= 0 || isNaN(r) || r < 0 || isNaN(t_val) || t_val <= 0) {
             setError(t.errorGeneric); return;
@@ -381,47 +360,6 @@ const InterestCalculator = ({t, lang}) => {
             const totalAmount = p * Math.pow((1 + (annualRate / 100) / n), n * t_val);
             const totalInterest = totalAmount - p;
             setResults({ mode: 'COMPOUND', principal: p, totalInterest, totalAmount, tenureInYears: t_val, annualRate });
-        }
-    };
-    
-    const handleAnalysis = async () => {
-        if (!results) return;
-        setIsAnalyzing(true); setAnalysisResult(''); setAnalysisError('');
-        const { principal, totalInterest, totalAmount, annualRate, tenureInYears } = results;
-
-        const langInstruction = lang === 'te' ? 'Please provide the entire response in the Telugu language.' : '';
-
-        const prompt = `${langInstruction}
-        Analyze this financial calculation for a user in India.
-        Calculation Type: ${mode} Interest
-        Principal: ${formatCurrency(principal)}
-        Annual Interest Rate: ${formatPercentage(annualRate)}
-        Tenure: ${tenureInYears.toFixed(2)} years
-        Total Interest: ${formatCurrency(totalInterest)}
-        Final Amount: ${formatCurrency(totalAmount)}
-        
-        Provide a friendly analysis covering:
-        - A quick summary of the results.
-        - One key observation (e.g., interest as a percentage of principal).
-        - One actionable financial tip based on these numbers.
-        - A concluding thought.
-        Keep it concise and easy to understand. Use bullet points.`;
-
-        try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-            });
-            if (!response.ok) throw new Error(`API request failed with status ${response.status}`);
-            const data = await response.json();
-            if (data.candidates && data.candidates.length > 0) {
-                setAnalysisResult(data.candidates[0].content.parts[0].text);
-            } else { throw new Error("No analysis received."); }
-        } catch (err) {
-            setAnalysisError("Sorry, couldn't get an AI analysis at this time.");
-        } finally {
-            setIsAnalyzing(false);
         }
     };
 
@@ -454,14 +392,11 @@ const InterestCalculator = ({t, lang}) => {
                 <div className="flex-grow flex flex-col justify-center">
                     {error && <div className="text-center bg-red-50 text-red-700 p-4 rounded-lg w-full"><p>{error}</p></div>}
                     {results && !error && (
-                        <>
-                            <div className="space-y-4 w-full">
-                                <ResultCard label={t.principalAmount} value={formatCurrency(results.principal)} lang={lang}/>
-                                <ResultCard label={mode === 'SIMPLE' ? t.totalInterestPayable : t.totalInterestEarned} value={formatCurrency(results.totalInterest)} lang={lang}/>
-                                <ResultCard label={mode === 'SIMPLE' ? t.totalAmountPayable : t.maturityAmount} value={formatCurrency(results.totalAmount)} isHighlighted={true} words={lang === 'en' ? toIndianWords(results.totalAmount) : toTeluguWords(results.totalAmount)} lang={lang}/>
-                            </div>
-                            <AiAnalysisSection onAnalyze={handleAnalysis} isLoading={isAnalyzing} analysis={analysisResult} error={analysisError} resultsAvailable={!!results} />
-                        </>
+                        <div className="space-y-4 w-full">
+                            <ResultCard label={t.principalAmount} value={formatCurrency(results.principal)} lang={lang}/>
+                            <ResultCard label={mode === 'SIMPLE' ? t.totalInterestPayable : t.totalInterestEarned} value={formatCurrency(results.totalInterest)} lang={lang}/>
+                            <ResultCard label={mode === 'SIMPLE' ? t.totalAmountPayable : t.maturityAmount} value={formatCurrency(results.totalAmount)} isHighlighted={true} words={lang === 'en' ? toIndianWords(results.totalAmount) : toTeluguWords(results.totalAmount)} lang={lang}/>
+                        </div>
                     )}
                     {!results && !error && <div className="text-center bg-gray-50 text-gray-500 p-4 rounded-lg w-full"><p>{t.enterDetails}</p></div>}
                 </div>
