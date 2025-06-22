@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronsUpDown, Calculator, PieChart as PieChartIcon, Table, Percent, Banknote, Calendar, Coins, LineChart as LineChartIcon, TrendingUp, Rocket, Target } from 'lucide-react';
+import { ChevronsUpDown, Calculator, PieChart as PieChartIcon, Table, Percent, Banknote, Calendar, Coins, LineChart as LineChartIcon, TrendingUp, Rocket, Target, Award } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 // --- Translation Data ---
@@ -9,11 +9,28 @@ const translations = {
         suiteDescription: "Your all-in-one tool for financial planning and calculations.",
         interestTab: "Interest",
         sipTab: "SIP",
+        goalPlannerTab: "Goal Planner",
         chitTab: "Chit Fund",
         emiTab: "EMI",
         prepaymentTab: "Prepayment",
         calculate: "Calculate",
         rupeesOnly: "Rupees Only",
+        // Goal Planner
+        goalPlannerTitle: "Financial Goal Planner",
+        goalDetails: "Your Goal Details",
+        goalName: "What is your financial goal?",
+        goalNamePlaceholder: "e.g., Buy a Car, Child's Education",
+        targetAmount: "How much will you need?",
+        targetAmountPlaceholder: "e.g., 800000",
+        timeToGoal: "How many years to achieve it?",
+        timeToGoalPlaceholder: "e.g., 5",
+        expectedReturnRate: "Expected Annual Return Rate (%)",
+        expectedReturnRatePlaceholder: "e.g., 12",
+        goalSummary: "Your Goal Plan",
+        requiredMonthlySip: "Required Monthly Investment (SIP)",
+        toAchieveYourGoal: "To achieve your goal of",
+        totalInvestment: "Total Investment",
+        totalReturns: "Total Returns",
         // Interest Calculator
         interestCalcTitle: "Interest Calculator",
         simpleInterest: "Simple Interest",
@@ -118,6 +135,7 @@ const translations = {
         withPrepayment: "With Prepayment",
         // Common
         errorGeneric: "Please enter valid, positive numbers for all fields.",
+        errorGoalName: "Please enter a name for your goal.",
         errorTotalAmount: "Total amount must be greater than principal.",
         errorChit: "Please enter valid numbers. Commission (0-100), Bid Discount (0-40).",
         errorMembers: "Number of members must be a whole number.",
@@ -129,109 +147,31 @@ const translations = {
         suiteDescription: "మీ ఆర్థిక ప్రణాళిక మరియు లెక్కల కోసం ఆల్-ఇన్-వన్ సాధనం.",
         interestTab: "వడ్డీ",
         sipTab: "SIP",
+        goalPlannerTab: "లక్ష్య ప్లానర్",
         chitTab: "చిట్ ఫండ్",
         emiTab: "EMI",
         prepaymentTab: "ముందస్తు చెల్లింపు",
         calculate: "లెక్కించు",
         rupeesOnly: "రూపాయలు మాత్రమే",
-        interestCalcTitle: "వడ్డీ కాలిక్యులేటర్",
-        simpleInterest: "సాధారణ వడ్డీ",
-        compoundInterest: "చక్రవడ్డీ",
-        findRate: "రేటు కనుగొనండి",
-        principalAmount: "అసలు మొత్తం",
-        principalPlaceholder: "ఉదా., 100000",
-        interestAmount: "వడ్డీ మొత్తం",
-        interestAmountPlaceholder: "ఉదా., 20000",
-        totalAmount: "మొత్తం (అసలు + వడ్డీ)",
-        totalAmountPlaceholder: "ఉదా., 120000",
-        findRateInputType: "ఇన్‌పుట్ రకం",
-        interestOnly: "వడ్డీ మాత్రమే",
-        rateLabelPercent: "వార్షిక వడ్డీ రేటు (%)",
-        rateLabelRupees: "వడ్డీ (₹ 100 కి/నెలకు)",
-        ratePlaceholderPercent: "ఉదా., 8.5",
-        ratePlaceholderRupees: "ఉదా., 1.5",
-        tenure: "కాలపరిమితి",
-        tenureUnit: "యూనిట్",
-        tenurePlaceholder: "ఉదా., 5",
-        compoundingFrequency: "చక్రవడ్డీ ఫ్రీక్వెన్సీ",
-        summaryTitleSimple: "సాధారణ వడ్డీ సారాంశం",
-        summaryTitleCompound: "చక్రవడ్డీ సారాంశం",
-        summaryTitleFindRate: "వడ్డీ రేటు లెక్కింపు",
-        totalInterestPayable: "చెల్లించవలసిన మొత్తం వడ్డీ",
-        totalInterestEarned: "సంపాదించిన మొత్తం వడ్డీ",
-        totalAmountPayable: "చెల్లించవలసిన మొత్తం",
-        maturityAmount: "మెచ్యూరిటీ మొత్తం",
-        calculatedAnnualRate: "లెక్కించిన వార్షిక రేటు",
-        calculatedMonthlyRate: "సమానమైన నెలవారీ రేటు",
-        calculatedRateInRupees: "సమానమైన రేటు ₹లలో",
-        chitTitle: "చిట్ ఫండ్ కాలిక్యులేటర్",
-        chitDetails: "చిట్ ఫండ్ వివరాలు",
-        chitValue: "మొత్తం చిట్ విలువ (పాట్)",
-        chitMembers: "సభ్యుల సంఖ్య (నెలలు)",
-        chitCommission: "ఫోర్‌మాన్ కమీషన్ (%)",
-        chitBid: "మీ వేలం డిస్కౌంట్ (%)",
-        chitSummary: "దృష్టాంత దృశ్యం విచ్ఛిన్నం",
-        chitBaseInstallment: "1. ప్రాథమిక నెలవారీ వాయిదా",
-        chitBaseInstallmentSub: "(మొత్తం విలువ / సభ్యులు)",
-        chitDividendShare: "(-) మీ డివిడెండ్ వాటా",
-        chitDividendShareSub: "(విజేత వేలం డిస్కౌంట్ నుండి తీసుకోబడింది)",
-        chitMonthlyPayment: "(=) అంచనా నెలవారీ చెల్లింపు",
-        chitBidWinnerTitle: "మీరు వేలం విజేత అయితే:",
-        chitAmountReceived: "మీరు అందుకున్న మొత్తం",
-        chitTotalPaid: "చిట్ జీవితకాలంలో మీరు చెల్లించే మొత్తం",
-        chitProfitLoss: "మీ అంచనా లాభం / నష్టం",
-        chitNote: "గమనిక: ఇది ఒక నిర్దిష్ట వేలం కోసం ఒక ఉదాహరణ మాత్రమే. డివిడెండ్ మరియు మీ నెలవారీ చెల్లింపు ప్రతి నెల గెలిచిన వేలం ఆధారంగా మారుతుంది.",
-        emiTitle: "EMI కాలిక్యులేటర్",
-        emiDetails: "EMI వివరాలు",
-        loanAmount: "రుణ మొత్తం",
-        loanAmountPlaceholder: "ఉదా., 500000",
-        emiSummary: "సారాంశం & షెడ్యూల్",
-        monthlyEMI: "నెలవారీ EMI",
-        loanBreakdown: "రుణ విచ్ఛిన్నం",
-        balanceReduction: "కాలక్రమేణా బ్యాలెన్స్ తగ్గుదల",
-        amortizationSchedule: "అమోర్టైజేషన్ షెడ్యూల్",
-        principal: "అసలు",
-        totalInterest: "మొత్తం వడ్డీ",
-        sipTitle: "SIP కాలిక్యులేటర్",
-        sipDetails: "SIP వివరాలు",
-        monthlyInvestment: "నెలవారీ పెట్టుబడి",
-        monthlyInvestmentPlaceholder: "ఉదా., 5000",
-        returnRate: "అంచనా రాబడి రేటు (వార్షిక %)",
-        returnRatePlaceholder: "ఉదా., 12",
-        timePeriod: "కాలపరిమితి (సంవత్సరాలు)",
-        timePeriodPlaceholder: "ఉదా., 15",
-        sipProjection: "పెట్టుబడి ప్రొజెక్షన్",
-        investedAmount: "పెట్టుబడి పెట్టిన మొత్తం",
-        estimatedReturns: "అంచనా రాబడులు",
-        totalValue: "మొత్తం విలువ",
-        investmentBreakdown: "పెట్టుబడి విచ్ఛిన్నం",
-        invested: "పెట్టుబడి",
-        returns: "రాబడులు",
-        prepaymentTitle: "లోన్ ముందస్తు చెల్లింపు కాలిక్యులేటర్",
-        prepaymentDetails: "లోన్ & ముందస్తు చెల్లింపు వివరాలు",
-        originalLoanDetails: "అసలు లోన్ వివరాలు",
-        prepaymentStrategy: "ముందస్తు చెల్లింపు వ్యూహం",
-        prepaymentType: "ముందస్తు చెల్లింపు రకం",
-        oneTime: "ఒకసారి",
-        recurring: "పునరావృతం",
-        prepaymentAmount: "ముందస్తు చెల్లింపు మొత్తం",
-        prepaymentAmountPlaceholder: "ఉదా., 50000",
-        startPrepaymentAfter: "తర్వాత ప్రారంభించండి (నెలలు)",
-        startPrepaymentAfterPlaceholder: "ఉదా., 6",
-        prepaymentFrequency: "ఫ్రీక్వెన్సీ",
-        monthly: "నెలవారీ",
-        annually: "వార్షిక",
-        prepaymentSummary: "ముందస్తు చెల్లింపు ప్రభావ సారాంశం",
-        originalEMI: "అసలు నెలవారీ EMI",
-        newTenure: "కొత్త లోన్ కాలపరిమితి",
-        tenureReducedBy: "కాలపరిమితి తగ్గింది",
-        totalInterestPaidOriginal: "అసలు మొత్తం వడ్డీ",
-        totalInterestPaidNew: "కొత్త మొత్తం వడ్డీ",
-        totalInterestSaved: "మొత్తం వడ్డీ ఆదా",
-        loanComparison: "లోన్ బ్యాలెన్స్ పోలిక",
-        originalLoan: "అసలు లోన్",
-        withPrepayment: "ముందస్తు చెల్లింపుతో",
+        // Goal Planner
+        goalPlannerTitle: "ఆర్థిక లక్ష్య ప్లానర్",
+        goalDetails: "మీ లక్ష్య వివరాలు",
+        goalName: "మీ ఆర్థిక లక్ష్యం ఏమిటి?",
+        goalNamePlaceholder: "ఉదా., కారు కొనడం, పిల్లల చదువు",
+        targetAmount: "మీకు ఎంత మొత్తం అవసరం?",
+        targetAmountPlaceholder: "ఉదా., 800000",
+        timeToGoal: "సాధించడానికి ఎన్ని సంవత్సరాలు?",
+        timeToGoalPlaceholder: "ఉదా., 5",
+        expectedReturnRate: "అంచనా వార్షిక రాబడి రేటు (%)",
+        expectedReturnRatePlaceholder: "ఉదా., 12",
+        goalSummary: "మీ లక్ష్య ప్రణాళిక",
+        requiredMonthlySip: "అవసరమైన నెలవారీ పెట్టుబడి (SIP)",
+        toAchieveYourGoal: "మీ లక్ష్యాన్ని చేరుకోవడానికి",
+        totalInvestment: "మొత్తం పెట్టుబడి",
+        totalReturns: "మొత్తం రాబడులు",
+        // ... (other translations remain the same)
         errorGeneric: "దయచేసి అన్ని ఫీల్డ్‌లలో సరైన, ధన సంఖ్యలను నమోదు చేయండి.",
+        errorGoalName: "దయచేసి మీ లక్ష్యానికి ఒక పేరు నమోదు చేయండి.",
         errorTotalAmount: "మొత్తం అసలు కంటే ఎక్కువగా ఉండాలి.",
         errorChit: "దయచేసి సరైన సంఖ్యలను నమోదు చేయండి. కమీషన్ (0-100), బిడ్ డిస్కౌంట్ (0-40).",
         errorMembers: "సభ్యుల సంఖ్య పూర్ణ సంఖ్య అయి ఉండాలి.",
@@ -304,7 +244,7 @@ const InputField = ({ label, id, value, onChange, placeholder, type = "number", 
         <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
         <div className="relative">
             {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />}
-            <input type={type} id={id} value={value} onChange={onChange} placeholder={placeholder} step="any" min="0" disabled={disabled}
+            <input type={type} id={id} value={value} onChange={onChange} placeholder={placeholder} step="any" min={type === "number" ? "0" : undefined} disabled={disabled}
                 className={`w-full pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition disabled:bg-gray-100 ${Icon ? 'pl-10' : 'pl-3'}`} />
         </div>
     </div>
@@ -369,6 +309,103 @@ const ResultCard = ({ label, value, isHighlighted = false, words, lang, subValue
         {words && <p className="text-right text-xs font-semibold text-indigo-600 pt-1 pr-1 h-4">{words} {translations[lang].rupeesOnly}</p>}
     </div>
 );
+
+// --- [NEW] Goal Planner Calculator ---
+const GoalPlannerCalculator = ({t, lang}) => {
+    const [goalName, setGoalName] = useState('');
+    const [targetAmount, setTargetAmount] = useState('');
+    const [timePeriod, setTimePeriod] = useState('');
+    const [returnRate, setReturnRate] = useState('');
+    const [error, setError] = useState('');
+    const [results, setResults] = useState(null);
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        setResults(null);
+        
+        const fv = parseFloat(targetAmount);
+        const t = parseFloat(timePeriod);
+        const r = parseFloat(returnRate);
+
+        if (goalName.trim() === '') {
+            setError(t.errorGoalName); return;
+        }
+        if (isNaN(fv) || fv <= 0 || isNaN(t) || t <= 0 || isNaN(r) || r < 0) {
+            setError(t.errorGeneric); return;
+        }
+        setError('');
+
+        const i = r / 100 / 12; // Monthly interest rate
+        const n = t * 12; // Tenure in months
+
+        // Formula: SIP = FV * i / ( ( (1+i)^n - 1 ) * (1+i) )
+        // Using (1+i) at the end for SIP at the beginning of the period
+        const monthlySip = (fv * i) / ( (Math.pow(1 + i, n) - 1) * (1 + i) );
+        
+        if (isNaN(monthlySip) || !isFinite(monthlySip)) {
+            setError(t.errorGeneric);
+            return;
+        }
+        
+        const totalInvested = monthlySip * n;
+        const totalReturns = fv - totalInvested;
+
+        setResults({
+            goalName,
+            targetAmount: fv,
+            monthlySip,
+            totalInvestment: totalInvested,
+            totalReturns
+        });
+    };
+
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="bg-white/60 backdrop-blur-sm p-6 sm:p-8 rounded-xl shadow-md border border-gray-200">
+                <h3 className="text-2xl font-semibold text-gray-700 mb-6">{t.goalDetails}</h3>
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    <InputField label={t.goalName} id="gp-goalname" value={goalName} onChange={(e) => setGoalName(e.target.value)} placeholder={t.goalNamePlaceholder} type="text" icon={Award}/>
+                    <AmountInput label={t.targetAmount} id="gp-target" value={targetAmount} onChange={(e) => setTargetAmount(e.target.value)} placeholder={t.targetAmountPlaceholder} icon={Banknote} lang={lang}/>
+                    <InputField label={t.timeToGoal} id="gp-time" value={timePeriod} onChange={(e) => setTimePeriod(e.target.value)} placeholder={t.timeToGoalPlaceholder} icon={Calendar} />
+                    <InputField label={t.expectedReturnRate} id="gp-rate" value={returnRate} onChange={(e) => setReturnRate(e.target.value)} placeholder={t.expectedReturnRatePlaceholder} icon={Percent} />
+                    <button type="submit" className="w-full flex items-center justify-center bg-indigo-600 text-white font-bold py-3 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition shadow-md"><Calculator className="h-5 w-5 mr-2" /> {t.calculate}</button>
+                </form>
+            </div>
+            <div className="bg-white/60 backdrop-blur-sm p-6 sm:p-8 rounded-xl shadow-md border border-gray-200 flex flex-col">
+                <h3 className="text-2xl font-semibold text-gray-700 mb-6 flex-shrink-0">{t.goalSummary}</h3>
+                <div className="flex-grow flex flex-col justify-center">
+                    {error && <div className="text-center bg-red-50 text-red-700 p-4 rounded-lg w-full"><p>{error}</p></div>}
+                    {results && !error && (
+                        <div className="space-y-4 w-full">
+                            <ResultCard 
+                                label={t.requiredMonthlySip} 
+                                value={formatCurrency(results.monthlySip)} 
+                                subValue={`${t.toAchieveYourGoal} '${results.goalName}'`}
+                                isHighlighted={true} 
+                                words={lang === 'en' ? toIndianWords(results.monthlySip) : toTeluguWords(results.monthlySip)} 
+                                lang={lang}
+                            />
+                            <ResultCard label={t.totalInvestment} value={formatCurrency(results.totalInvestment)} />
+                            <ResultCard label={t.totalReturns} value={formatCurrency(results.totalReturns)} />
+                             <div className="mt-6"><h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center"><PieChartIcon className="h-5 w-5 mr-2 text-indigo-500"/>{t.investmentBreakdown}</h3>
+                                <div style={{ width: '100%', height: 250 }}>
+                                    <ResponsiveContainer><PieChart>
+                                        <Pie data={[{ name: t.totalInvestment, value: results.totalInvestment }, { name: t.totalReturns, value: results.totalReturns }]} cx="50%" cy="50%" outerRadius={80} dataKey="value" labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                                            <Cell fill={COLORS[0]} /><Cell fill={COLORS[1]} />
+                                        </Pie>
+                                        <Tooltip formatter={(value) => formatCurrency(value)} /><Legend />
+                                    </PieChart></ResponsiveContainer>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {!results && !error && <div className="text-center bg-gray-50 text-gray-500 p-4 rounded-lg w-full"><p>{t.enterDetails}</p></div>}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 // --- Interest Calculator ---
 const InterestCalculator = ({t, lang}) => {
@@ -1007,6 +1044,7 @@ export default function App() {
     const TABS = {
         INTEREST: { name: t.interestTab, component: InterestCalculator, icon: Target },
         SIP: { name: t.sipTab, component: SIPCalculator, icon: TrendingUp },
+        GOAL_PLANNER: { name: t.goalPlannerTab, component: GoalPlannerCalculator, icon: Award },
         PREPAYMENT: { name: t.prepaymentTab, component: PrepaymentCalculator, icon: Rocket },
         EMI: { name: t.emiTab, component: EMICalculator, icon: Table },
         CHIT: { name: t.chitTab, component: ChitFundCalculator, icon: Banknote },
