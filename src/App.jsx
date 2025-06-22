@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronsUpDown, Calculator, PieChart as PieChartIcon, Table, Percent, Banknote, Calendar, Coins, LineChart as LineChartIcon, TrendingUp, Rocket, Target, Award } from 'lucide-react';
+import { ChevronsUpDown, Calculator, PieChart as PieChartIcon, Table, Percent, Banknote, Calendar, Coins, LineChart as LineChartIcon, TrendingUp, Rocket, Target, Award, ArrowRight } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 // --- Translation Data ---
@@ -55,9 +55,17 @@ const translations = {
         summaryTitleSimple: "Simple Interest Summary",
         summaryTitleCompound: "Compound Interest Summary",
         summaryTitleFindRate: "Interest Rate Calculation",
+        manualCalculationTitle: "Manual Calculation Breakdown",
+        closingChargesOptional: "Optional: Closing Charges",
+        chargeAmount: "Charge Amount",
+        chargeType: "Charge Type",
+        flatFee: "Flat ₹",
+        perLac: "Per Lac",
         totalInterestPayable: "Total Interest Payable",
         totalInterestEarned: "Total Interest Earned",
         totalAmountPayable: "Total Amount Payable",
+        totalClosingCharges: "Total Closing Charges",
+        totalPayout: "Total Payout (Incl. Charges)",
         maturityAmount: "Maturity Amount",
         calculatedAnnualRate: "Calculated Annual Rate",
         calculatedMonthlyRate: "Equivalent Monthly Rate",
@@ -137,6 +145,7 @@ const translations = {
         errorGeneric: "Please enter valid, positive numbers for all fields.",
         errorGoalName: "Please enter a name for your goal.",
         errorTotalAmount: "Total amount must be greater than principal.",
+        errorCharges: "Closing charges cannot be more than the principal amount.",
         errorChit: "Please enter valid numbers. Commission (0-100), Bid Discount (0-40).",
         errorMembers: "Number of members must be a whole number.",
         errorPrepayment: "Prepayment amount must be less than the loan amount.",
@@ -169,10 +178,20 @@ const translations = {
         toAchieveYourGoal: "మీ లక్ష్యాన్ని చేరుకోవడానికి",
         totalInvestment: "మొత్తం పెట్టుబడి",
         totalReturns: "మొత్తం రాబడులు",
+        // Interest Calculator
+        manualCalculationTitle: "మాన్యువల్ లెక్కింపు విచ్ఛిన్నం",
+        closingChargesOptional: "ఐచ్ఛికం: ముగింపు ఛార్జీలు",
+        chargeAmount: "ఛార్జ్ మొత్తం",
+        chargeType: "ఛార్జ్ రకం",
+        flatFee: "ఫ్లాట్ ₹",
+        perLac: "లక్షకు",
+        totalClosingCharges: "మొత్తం ముగింపు ఛార్జీలు",
+        totalPayout: "మొత్తం చెల్లింపు (ఛార్జీలతో)",
         // ... (other translations remain the same)
         errorGeneric: "దయచేసి అన్ని ఫీల్డ్‌లలో సరైన, ధన సంఖ్యలను నమోదు చేయండి.",
         errorGoalName: "దయచేసి మీ లక్ష్యానికి ఒక పేరు నమోదు చేయండి.",
         errorTotalAmount: "మొత్తం అసలు కంటే ఎక్కువగా ఉండాలి.",
+        errorCharges: "ముగింపు ఛార్జీలు అసలు మొత్తం కంటే ఎక్కువగా ఉండకూడదు.",
         errorChit: "దయచేసి సరైన సంఖ్యలను నమోదు చేయండి. కమీషన్ (0-100), బిడ్ డిస్కౌంట్ (0-40).",
         errorMembers: "సభ్యుల సంఖ్య పూర్ణ సంఖ్య అయి ఉండాలి.",
         errorPrepayment: "ముందస్తు చెల్లింపు మొత్తం లోన్ మొత్తం కంటే తక్కువగా ఉండాలి.",
@@ -310,7 +329,7 @@ const ResultCard = ({ label, value, isHighlighted = false, words, lang, subValue
     </div>
 );
 
-// --- [NEW] Goal Planner Calculator ---
+// --- Goal Planner Calculator ---
 const GoalPlannerCalculator = ({t, lang}) => {
     const [goalName, setGoalName] = useState('');
     const [targetAmount, setTargetAmount] = useState('');
@@ -338,8 +357,6 @@ const GoalPlannerCalculator = ({t, lang}) => {
         const i = r / 100 / 12; // Monthly interest rate
         const n = time * 12; // Tenure in months
 
-        // Formula: SIP = FV * i / ( ( (1+i)^n - 1 ) * (1+i) )
-        // Using (1+i) at the end for SIP at the beginning of the period
         const monthlySip = (fv * i) / ( (Math.pow(1 + i, n) - 1) * (1 + i) );
         
         if (isNaN(monthlySip) || !isFinite(monthlySip)) {
@@ -408,18 +425,26 @@ const GoalPlannerCalculator = ({t, lang}) => {
 
 
 // --- Interest Calculator ---
-const InterestCalculator = ({t, lang}) => {
+const InterestCalculator = ({t, lang, sharedValues, setSharedValues}) => {
     const [mode, setMode] = useState('SIMPLE');
-    const [principal, setPrincipal] = useState('');
-    const [rate, setRate] = useState('');
+    const [principal, setPrincipal] = useState(sharedValues.principal);
+    const [rate, setRate] = useState(sharedValues.rate);
     const [finalAmountInput, setFinalAmountInput] = useState('');
     const [findRateInputType, setFindRateInputType] = useState('interest');
-    const [tenure, setTenure] = useState('');
+    const [tenure, setTenure] = useState(sharedValues.tenure);
     const [interestType, setInterestType] = useState('%');
     const [tenureType, setTenureType] = useState('Years');
     const [frequency, setFrequency] = useState('1');
+    const [closingCharge, setClosingCharge] = useState('');
+    const [closingChargeType, setClosingChargeType] = useState('flat');
     const [error, setError] = useState('');
     const [results, setResults] = useState(null);
+    
+    useEffect(() => {
+        setPrincipal(sharedValues.principal);
+        setRate(sharedValues.rate);
+        setTenure(sharedValues.tenure);
+    }, [sharedValues]);
 
     const compoundingFrequencies = {'12': 'Monthly', '4': 'Quarterly', '2': 'Half-Yearly', '1': 'Annually' };
 
@@ -427,10 +452,16 @@ const InterestCalculator = ({t, lang}) => {
         setMode(newMode); 
         setResults(null); 
         setError('');
-        setPrincipal('');
-        setRate('');
         setFinalAmountInput('');
-        setTenure('');
+        setClosingCharge('');
+    }
+    
+    const handleInputChange = (setter, key) => (e) => {
+        const { value } = e.target;
+        setter(value);
+        if(key) {
+            setSharedValues(prev => ({...prev, [key]: value}));
+        }
     }
 
     const handleSubmit = (e) => {
@@ -474,25 +505,51 @@ const InterestCalculator = ({t, lang}) => {
                 mode: 'FIND_RATE',
                 principal: p,
                 interestAmount: i_amt,
-                tenureInYears,
-                annualRate: calculatedRate
+                tenureYears: tenureInYears,
+                annualRate: calculatedRate,
             });
-        } else if (mode === 'SIMPLE') {
+        } else { // Simple or Compound
             const r = parseFloat(rate);
             if(isNaN(r) || r < 0) { setError(t.errorGeneric); return; }
             setError('');
             const annualRate = interestType === '%' ? r : r * 12;
-            const totalInterest = (p * annualRate * tenureInYears) / 100;
-            setResults({ mode: 'SIMPLE', principal: p, totalInterest, totalAmount: p + totalInterest, tenureInYears, annualRate});
-        } else { // COMPOUND
-            const r = parseFloat(rate);
-            if(isNaN(r) || r < 0) { setError(t.errorGeneric); return; }
-            setError('');
-            const n = parseFloat(frequency);
-            const annualRate = interestType === '%' ? r : r * 12;
-            const totalAmount = p * Math.pow((1 + (annualRate / 100) / n), n * t_val);
-            const totalInterest = totalAmount - p;
-            setResults({ mode: 'COMPOUND', principal: p, totalInterest, totalAmount, tenureInYears: t_val, annualRate });
+
+            const cc = parseFloat(closingCharge) || 0;
+            let totalClosingCharge = 0;
+            if (cc > 0) {
+                if (closingChargeType === 'perLac') {
+                    totalClosingCharge = (p / 100000) * cc;
+                } else {
+                    totalClosingCharge = cc;
+                }
+            }
+
+            if(mode === 'SIMPLE') {
+                const totalInterest = (p * annualRate * tenureInYears) / 100;
+                setResults({ 
+                    mode: 'SIMPLE', 
+                    principal: p, 
+                    totalInterest, 
+                    totalAmount: p + totalInterest, 
+                    tenureYears: tenureInYears, 
+                    annualRate,
+                    totalClosingCharge
+                });
+            } else { // COMPOUND
+                const n = parseFloat(frequency);
+                const totalAmount = p * Math.pow((1 + (annualRate / 100) / n), n * t_val);
+                const totalInterest = totalAmount - p;
+                setResults({ 
+                    mode: 'COMPOUND', 
+                    principal: p, 
+                    totalInterest, 
+                    totalAmount, 
+                    tenureYears: t_val,
+                    annualRate,
+                    compoundingFrequency: n,
+                    totalClosingCharge
+                });
+            }
         }
     };
     
@@ -505,13 +562,62 @@ const InterestCalculator = ({t, lang}) => {
         }
     }
 
+    const ManualCalculation = () => {
+        if (!results) return null;
+        
+        return (
+            <div className="mt-6 bg-gray-50/80 p-4 rounded-lg border border-gray-200">
+                <h4 className="font-semibold text-gray-700 mb-4 text-center">{t.manualCalculationTitle}</h4>
+                <div className="space-y-4 text-sm text-center text-gray-800">
+                    {results.mode === 'SIMPLE' && (
+                        <>
+                            <p>
+                                ({formatCurrency(results.principal)} × {results.annualRate.toFixed(2)}% × {results.tenureYears.toFixed(2)} yrs) / 100 = <span className="font-bold text-blue-600">{formatCurrency(results.totalInterest)}</span>
+                            </p>
+                            <p className="border-t border-dashed pt-3 mt-3">
+                                {formatCurrency(results.principal)} + {formatCurrency(results.totalInterest)} = <span className="font-bold text-blue-600">{formatCurrency(results.totalAmount)}</span>
+                            </p>
+                             {results.totalClosingCharge > 0 && 
+                                <p className="border-t border-dashed pt-3 mt-3">
+                                    {formatCurrency(results.totalAmount)} + {formatCurrency(results.totalClosingCharge)} = <span className="font-bold text-red-600">{formatCurrency(results.totalAmount + results.totalClosingCharge)}</span>
+                                </p>
+                            }
+                        </>
+                    )}
+                    {results.mode === 'COMPOUND' && (
+                         <>
+                           <p>
+                                {formatCurrency(results.principal)} × (1 + {results.annualRate.toFixed(2)}% / {results.compoundingFrequency})^{`(${results.compoundingFrequency}×${results.tenureYears})`} = <span className="font-bold text-blue-600">{formatCurrency(results.totalAmount)}</span>
+                           </p>
+                           <p className="border-t border-dashed pt-3 mt-3">
+                                {formatCurrency(results.totalAmount)} - {formatCurrency(results.principal)} = <span className="font-bold text-blue-600">{formatCurrency(results.totalInterest)}</span>
+                           </p>
+                            {results.totalClosingCharge > 0 && 
+                                <p className="border-t border-dashed pt-3 mt-3">
+                                    {formatCurrency(results.totalAmount)} + {formatCurrency(results.totalClosingCharge)} = <span className="font-bold text-red-600">{formatCurrency(results.totalAmount + results.totalClosingCharge)}</span>
+                                </p>
+                            }
+                        </>
+                    )}
+                    {results.mode === 'FIND_RATE' && (
+                         <>
+                            <p>
+                                ({formatCurrency(results.interestAmount)} × 100) / ({formatCurrency(results.principal)} × {results.tenureYears.toFixed(2)} yrs) = <span className="font-bold text-blue-600">{formatPercentage(results.annualRate)}</span>
+                            </p>
+                        </>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="bg-white/70 backdrop-blur-sm p-6 sm:p-8 rounded-xl shadow-lg border border-gray-200/50">
                 <form onSubmit={handleSubmit} className="space-y-5">
                     <ToggleButton options={{'SIMPLE': t.simpleInterest, 'COMPOUND': t.compoundInterest, 'FIND_RATE': t.findRate}} selected={mode} onSelect={handleModeChange}/>
                     
-                    <AmountInput label={t.principalAmount} id="i-principal" value={principal} onChange={(e) => setPrincipal(e.target.value)} placeholder={t.principalPlaceholder} icon={Banknote} lang={lang} />
+                    <AmountInput label={t.principalAmount} id="i-principal" value={principal} onChange={handleInputChange(setPrincipal, 'principal')} placeholder={t.principalPlaceholder} icon={Banknote} lang={lang} />
                     
                     {mode === 'FIND_RATE' ? (
                         <>
@@ -530,20 +636,33 @@ const InterestCalculator = ({t, lang}) => {
                             />
                         </>
                     ) : (
-                        <div className="grid grid-cols-3 gap-3">
-                            <div className="col-span-2"><InputField label={interestType === '%' ? t.rateLabelPercent : t.rateLabelRupees} id="si-interest" value={rate} onChange={(e) => setRate(e.target.value)} placeholder={interestType === '%' ? t.ratePlaceholderPercent : t.ratePlaceholderRupees} icon={Percent}/></div>
-                            <div className="col-span-1"><CustomSelect label="Type" value={interestType} onChange={setInterestType} options={{ '%': '%', '₹': '₹' }} /></div>
-                        </div>
+                        <>
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="col-span-2"><InputField label={interestType === '%' ? t.rateLabelPercent : t.rateLabelRupees} id="si-interest" value={rate} onChange={handleInputChange(setRate, 'rate')} placeholder={interestType === '%' ? t.ratePlaceholderPercent : t.ratePlaceholderRupees} icon={Percent}/></div>
+                                <div className="col-span-1"><CustomSelect label="Type" value={interestType} onChange={setInterestType} options={{ '%': '%', '₹': '₹' }} /></div>
+                            </div>
+                             <div className="border-t border-dashed pt-4">
+                                <p className="text-sm font-medium text-gray-500 mb-2">{t.closingChargesOptional}</p>
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="col-span-2">
+                                        <InputField label={t.chargeAmount} id="closing-charge" value={closingCharge} onChange={(e) => setClosingCharge(e.target.value)} placeholder="e.g., 2000" icon={Banknote}/>
+                                    </div>
+                                    <div className="col-span-1">
+                                        <CustomSelect label={t.chargeType} value={closingChargeType} onChange={setClosingChargeType} options={{ 'flat': t.flatFee, 'perLac': t.perLac }} />
+                                    </div>
+                                </div>
+                            </div>
+                        </>
                     )}
 
                     {mode === 'COMPOUND' ? (
                         <>
-                            <InputField label={`${t.tenure} (in Years)`} id="ci-tenure" value={tenure} onChange={(e) => setTenure(e.target.value)} placeholder={t.tenurePlaceholder} icon={Calendar}/>
+                            <InputField label={`${t.tenure} (in Years)`} id="ci-tenure" value={tenure} onChange={handleInputChange(setTenure, 'tenure')} placeholder={t.tenurePlaceholder} icon={Calendar}/>
                             <CustomSelect label={t.compoundingFrequency} value={frequency} onChange={setFrequency} options={compoundingFrequencies} />
                         </>
                     ) : (
                          <div className="grid grid-cols-3 gap-3">
-                            <div className="col-span-2"><InputField label={t.tenure} id="si-tenure" value={tenure} onChange={(e) => setTenure(e.target.value)} placeholder={t.tenurePlaceholder} icon={Calendar}/></div>
+                            <div className="col-span-2"><InputField label={t.tenure} id="si-tenure" value={tenure} onChange={handleInputChange(setTenure, 'tenure')} placeholder={t.tenurePlaceholder} icon={Calendar}/></div>
                             <div className="col-span-1"><CustomSelect label={t.tenureUnit} value={tenureType} onChange={setTenureType} options={{'Years':'Years', 'Months':'Months', 'Days': 'Days'}} /></div>
                         </div>
                     )}
@@ -555,22 +674,27 @@ const InterestCalculator = ({t, lang}) => {
                 <div className="flex-grow flex flex-col justify-center">
                     {error && <div className="text-center bg-red-100 text-red-700 p-4 rounded-lg w-full"><p>{error}</p></div>}
                     {results && !error && (
-                        <div className="space-y-4 w-full">
-                           {results.mode === 'SIMPLE' && <>
-                                <ResultCard label={t.principalAmount} value={formatCurrency(results.principal)} lang={lang}/>
-                                <ResultCard label={t.totalInterestPayable} value={formatCurrency(results.totalInterest)} lang={lang}/>
-                                <ResultCard label={t.totalAmountPayable} value={formatCurrency(results.totalAmount)} isHighlighted={true} words={lang === 'en' ? toIndianWords(results.totalAmount) : toTeluguWords(results.totalAmount)} lang={lang}/>
-                            </>}
-                             {results.mode === 'COMPOUND' && <>
-                                <ResultCard label={t.principalAmount} value={formatCurrency(results.principal)} lang={lang}/>
-                                <ResultCard label={t.totalInterestEarned} value={formatCurrency(results.totalInterest)} lang={lang}/>
-                                <ResultCard label={t.maturityAmount} value={formatCurrency(results.totalAmount)} isHighlighted={true} words={lang === 'en' ? toIndianWords(results.totalAmount) : toTeluguWords(results.totalAmount)} lang={lang}/>
-                            </>}
-                            {results.mode === 'FIND_RATE' && <>
-                                <ResultCard label={t.calculatedAnnualRate} value={formatPercentage(results.annualRate)} isHighlighted={true} />
-                                <ResultCard label={t.calculatedMonthlyRate} value={formatPercentage(results.annualRate / 12)} />
-                                <ResultCard label={t.calculatedRateInRupees} value={`${formatCurrency(results.annualRate / 12)} per ₹100 / month`} />
-                            </>}
+                        <div>
+                            <div className="space-y-4 w-full">
+                               {results.mode === 'SIMPLE' && <>
+                                    <ResultCard label={t.principalAmount} value={formatCurrency(results.principal)} lang={lang}/>
+                                    <ResultCard label={t.totalInterestPayable} value={formatCurrency(results.totalInterest)} lang={lang}/>
+                                    {results.totalClosingCharge > 0 && <ResultCard label={t.totalClosingCharges} value={formatCurrency(results.totalClosingCharge)} lang={lang}/>}
+                                    <ResultCard label={t.totalPayout} value={formatCurrency(results.totalAmount + results.totalClosingCharge)} isHighlighted={true} words={lang === 'en' ? toIndianWords(results.totalAmount + results.totalClosingCharge) : toTeluguWords(results.totalAmount + results.totalClosingCharge)} lang={lang}/>
+                                </>}
+                                 {results.mode === 'COMPOUND' && <>
+                                    <ResultCard label={t.principalAmount} value={formatCurrency(results.principal)} lang={lang}/>
+                                    <ResultCard label={t.totalInterestEarned} value={formatCurrency(results.totalInterest)} lang={lang}/>
+                                    {results.totalClosingCharge > 0 && <ResultCard label={t.totalClosingCharges} value={formatCurrency(results.totalClosingCharge)} lang={lang}/>}
+                                    <ResultCard label={t.totalPayout} value={formatCurrency(results.totalAmount + results.totalClosingCharge)} isHighlighted={true} words={lang === 'en' ? toIndianWords(results.totalAmount + results.totalClosingCharge) : toTeluguWords(results.totalAmount + results.totalClosingCharge)} lang={lang}/>
+                                </>}
+                                {results.mode === 'FIND_RATE' && <>
+                                    <ResultCard label={t.calculatedAnnualRate} value={formatPercentage(results.annualRate)} isHighlighted={true} />
+                                    <ResultCard label={t.calculatedMonthlyRate} value={formatPercentage(results.annualRate / 12)} />
+                                    <ResultCard label={t.calculatedRateInRupees} value={`${formatCurrency(results.annualRate / 12)} per ₹100 / month`} />
+                                </>}
+                            </div>
+                            <ManualCalculation />
                         </div>
                     )}
                     {!results && !error && <div className="text-center bg-gray-50/80 text-gray-500 p-4 rounded-lg w-full"><p>{t.enterDetails}</p></div>}
@@ -581,13 +705,27 @@ const InterestCalculator = ({t, lang}) => {
 };
 
 // --- EMI Calculator ---
-const EMICalculator = ({t, lang}) => {
-    const [principal, setPrincipal] = useState('');
-    const [rate, setRate] = useState('');
-    const [tenure, setTenure] = useState('');
+const EMICalculator = ({t, lang, sharedValues, setSharedValues}) => {
+    const [principal, setPrincipal] = useState(sharedValues.principal);
+    const [rate, setRate] = useState(sharedValues.rate);
+    const [tenure, setTenure] = useState(sharedValues.tenure);
     const [tenureType, setTenureType] = useState('Years');
     const [error, setError] = useState('');
     const [results, setResults] = useState(null);
+
+    useEffect(() => {
+        setPrincipal(sharedValues.principal);
+        setRate(sharedValues.rate);
+        setTenure(sharedValues.tenure);
+    }, [sharedValues]);
+
+    const handleInputChange = (setter, key) => (e) => {
+        const { value } = e.target;
+        setter(value);
+        if(key) {
+            setSharedValues(prev => ({...prev, [key]: value}));
+        }
+    }
 
     const handleSubmit = (e) => {
         e.preventDefault(); setResults(null);
@@ -666,10 +804,10 @@ const EMICalculator = ({t, lang}) => {
             <div className="lg:col-span-2 bg-white/70 backdrop-blur-sm p-6 sm:p-8 rounded-xl shadow-lg border border-gray-200/50">
                 <h3 className="text-2xl font-semibold text-gray-800 mb-6">{t.emiDetails}</h3>
                 <form onSubmit={handleSubmit} className="space-y-5">
-                    <AmountInput label={t.loanAmount} id="emi-principal" value={principal} onChange={(e) => setPrincipal(e.target.value)} placeholder={t.loanAmountPlaceholder} icon={Banknote} lang={lang}/>
-                    <InputField label={t.rateLabelPercent} id="emi-rate" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="e.g., 9.5" icon={Percent}/>
+                    <AmountInput label={t.loanAmount} id="emi-principal" value={principal} onChange={handleInputChange(setPrincipal, 'principal')} placeholder={t.loanAmountPlaceholder} icon={Banknote} lang={lang}/>
+                    <InputField label={t.rateLabelPercent} id="emi-rate" value={rate} onChange={handleInputChange(setRate, 'rate')} placeholder="e.g., 9.5" icon={Percent}/>
                     <div className="grid grid-cols-3 gap-3">
-                        <div className="col-span-2"><InputField label={t.tenure} id="emi-tenure" value={tenure} onChange={(e) => setTenure(e.target.value)} placeholder="e.g., 20" icon={Calendar}/></div>
+                        <div className="col-span-2"><InputField label={t.tenure} id="emi-tenure" value={tenure} onChange={handleInputChange(setTenure, 'tenure')} placeholder="e.g., 20" icon={Calendar}/></div>
                         <div className="col-span-1"><CustomSelect label={t.tenureUnit} value={tenureType} onChange={setTenureType} options={{'Years':'Years', 'Months':'Months'}}/></div>
                     </div>
                     <button type="submit" className="w-full flex items-center justify-center bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold py-3 px-4 rounded-md hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition shadow-md hover:shadow-lg"><Calculator className="h-5 w-5 mr-2" /> {t.calculate} EMI</button>
@@ -839,29 +977,31 @@ const SIPCalculator = ({t, lang}) => {
 };
 
 // --- Loan Prepayment Calculator ---
-const PrepaymentCalculator = ({ t, lang }) => {
-    const [inputs, setInputs] = useState({
-        loanAmount: '',
-        rate: '',
-        tenure: '',
-        prepaymentType: 'one-time',
-        prepaymentAmount: '',
-        startMonth: '',
-        prepaymentFrequency: '12', // 1 for monthly, 12 for annually
-    });
+const PrepaymentCalculator = ({ t, lang, sharedValues, setSharedValues }) => {
+    const [loanAmount, setLoanAmount] = useState(sharedValues.principal);
+    const [rate, setRate] = useState(sharedValues.rate);
+    const [tenure, setTenure] = useState(sharedValues.tenure);
+    const [prepaymentType, setPrepaymentType] = useState('one-time');
+    const [prepaymentAmount, setPrepaymentAmount] = useState('');
+    const [startMonth, setStartMonth] = useState('');
+    const [prepaymentFrequency, setPrepaymentFrequency] = useState('12');
     const [error, setError] = useState('');
     const [results, setResults] = useState(null);
 
-    const handleInputChange = (e) => {
-        const { id, value } = e.target;
-        setInputs(prev => ({ ...prev, [id]: value }));
-    };
+    useEffect(() => {
+        setLoanAmount(sharedValues.principal);
+        setRate(sharedValues.rate);
+        setTenure(sharedValues.tenure);
+    }, [sharedValues]);
 
-    const handleToggleChange = (value) => {
-        setInputs(prev => ({ ...prev, prepaymentType: value }));
-        setResults(null);
+    const handleInputChange = (setter, key) => (e) => {
+        const { value } = e.target;
+        setter(value);
+        if(key) {
+            setSharedValues(prev => ({...prev, [key]: value}));
+        }
     }
-    
+
     const formatMonths = (totalMonths) => {
         const years = Math.floor(totalMonths / 12);
         const months = totalMonths % 12;
@@ -914,13 +1054,13 @@ const PrepaymentCalculator = ({ t, lang }) => {
         e.preventDefault();
         setResults(null);
 
-        const p = parseFloat(inputs.loanAmount);
-        const r = parseFloat(inputs.rate);
-        const t_val = parseFloat(inputs.tenure);
-        const pp_amt = parseFloat(inputs.prepaymentAmount);
-        const pp_start = parseInt(inputs.startMonth);
+        const p = parseFloat(loanAmount);
+        const r = parseFloat(rate);
+        const t_val = parseFloat(tenure);
+        const pp_amt = parseFloat(prepaymentAmount);
+        const pp_start = parseInt(startMonth);
 
-        if (isNaN(p) || p <= 0 || isNaN(r) || r <= 0 || isNaN(t_val) || t_val <= 0 || isNaN(pp_amt) || pp_amt <= 0 || (inputs.prepaymentType === 'recurring' && (isNaN(pp_start) || pp_start <= 0))) {
+        if (isNaN(p) || p <= 0 || isNaN(r) || r <= 0 || isNaN(t_val) || t_val <= 0 || isNaN(pp_amt) || pp_amt <= 0 || (prepaymentType === 'recurring' && (isNaN(pp_start) || pp_start <= 0))) {
             setError(t.errorGeneric); return;
         }
         if (pp_amt >= p) {
@@ -936,9 +1076,9 @@ const PrepaymentCalculator = ({ t, lang }) => {
         
         const prepaymentSettings = {
             amount: pp_amt,
-            type: inputs.prepaymentType,
+            type: prepaymentType,
             startMonth: pp_start,
-            frequency: inputs.prepaymentType === 'recurring' ? parseInt(inputs.prepaymentFrequency) : 0
+            frequency: prepaymentType === 'recurring' ? parseInt(prepaymentFrequency) : 0
         };
         const newCalc = calculateAmortization(p, emi, monthlyRate, prepaymentSettings);
 
@@ -989,20 +1129,20 @@ const PrepaymentCalculator = ({ t, lang }) => {
                     <fieldset className="border border-gray-300 p-4 rounded-md">
                         <legend className="text-sm font-medium text-gray-700 px-2">{t.originalLoanDetails}</legend>
                         <div className="space-y-4">
-                            <AmountInput label={t.loanAmount} id="loanAmount" value={inputs.loanAmount} onChange={handleInputChange} placeholder={t.loanAmountPlaceholder} icon={Banknote} lang={lang} />
-                            <InputField label={t.rateLabelPercent} id="rate" value={inputs.rate} onChange={handleInputChange} placeholder="e.g., 9.5" icon={Percent} />
-                            <InputField label={`${t.tenure} (Years)`} id="tenure" value={inputs.tenure} onChange={handleInputChange} placeholder="e.g., 20" icon={Calendar} />
+                            <AmountInput label={t.loanAmount} id="loanAmount" value={loanAmount} onChange={handleInputChange(setLoanAmount, 'principal')} placeholder={t.loanAmountPlaceholder} icon={Banknote} lang={lang} />
+                            <InputField label={t.rateLabelPercent} id="rate" value={rate} onChange={handleInputChange(setRate, 'rate')} placeholder="e.g., 9.5" icon={Percent} />
+                            <InputField label={`${t.tenure} (Years)`} id="tenure" value={tenure} onChange={handleInputChange(setTenure, 'tenure')} placeholder="e.g., 20" icon={Calendar} />
                         </div>
                     </fieldset>
 
                     <fieldset className="border border-gray-300 p-4 rounded-md">
                         <legend className="text-sm font-medium text-gray-700 px-2">{t.prepaymentStrategy}</legend>
                         <div className="space-y-4">
-                            <ToggleButton options={{ 'one-time': t.oneTime, 'recurring': t.recurring }} selected={inputs.prepaymentType} onSelect={handleToggleChange} />
-                            <AmountInput label={t.prepaymentAmount} id="prepaymentAmount" value={inputs.prepaymentAmount} onChange={handleInputChange} placeholder={t.prepaymentAmountPlaceholder} icon={Banknote} lang={lang} />
-                            <InputField label={t.startPrepaymentAfter} id="startMonth" value={inputs.startMonth} onChange={handleInputChange} placeholder={t.startPrepaymentAfterPlaceholder} icon={Calendar} />
-                            {inputs.prepaymentType === 'recurring' && (
-                                <CustomSelect label={t.prepaymentFrequency} value={inputs.prepaymentFrequency} onChange={(v) => setInputs(p => ({...p, prepaymentFrequency: v}))} options={{ '1': t.monthly, '12': t.annually }} />
+                            <ToggleButton options={{ 'one-time': t.oneTime, 'recurring': t.recurring }} selected={prepaymentType} onSelect={setPrepaymentType} />
+                            <AmountInput label={t.prepaymentAmount} id="prepaymentAmount" value={prepaymentAmount} onChange={(e) => setPrepaymentAmount(e.target.value)} placeholder={t.prepaymentAmountPlaceholder} icon={Banknote} lang={lang} />
+                            <InputField label={t.startPrepaymentAfter} id="startMonth" value={startMonth} onChange={(e) => setStartMonth(e.target.value)} placeholder={t.startPrepaymentAfterPlaceholder} icon={Calendar} />
+                            {prepaymentType === 'recurring' && (
+                                <CustomSelect label={t.prepaymentFrequency} value={prepaymentFrequency} onChange={setPrepaymentFrequency} options={{ '1': t.monthly, '12': t.annually }} />
                             )}
                         </div>
                     </fieldset>
@@ -1040,6 +1180,7 @@ const PrepaymentCalculator = ({ t, lang }) => {
 export default function App() {
     const [lang, setLang] = useState('en');
     const t = translations[lang];
+    const [sharedValues, setSharedValues] = useState({ principal: '', rate: '', tenure: '' });
 
     const TABS = {
         GOAL_PLANNER: { name: t.goalPlannerTab, component: GoalPlannerCalculator, icon: Award },
@@ -1049,7 +1190,7 @@ export default function App() {
         EMI: { name: t.emiTab, component: EMICalculator, icon: Table },
         CHIT: { name: t.chitTab, component: ChitFundCalculator, icon: Banknote },
     };
-    const [activeTab, setActiveTab] = useState('GOAL_PLANNER');
+    const [activeTab, setActiveTab] = useState('INTEREST');
 
     const ActiveComponent = TABS[activeTab].component;
     
@@ -1091,7 +1232,7 @@ export default function App() {
                 </div>
 
                 <div className="transition-opacity duration-300">
-                    <ActiveComponent t={t} lang={lang} />
+                    <ActiveComponent t={t} lang={lang} sharedValues={sharedValues} setSharedValues={setSharedValues} />
                 </div>
             </div>
              <footer className="text-center mt-12 pb-4">
