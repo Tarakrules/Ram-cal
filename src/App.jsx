@@ -1,29 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronsUpDown, Calculator, PieChart as PieChartIcon, Table, Percent, Banknote, Calendar, Coins, LineChart as LineChartIcon, TrendingUp, Rocket, Target, LogIn, LogOut, User } from 'lucide-react';
+import { ChevronsUpDown, Calculator, PieChart as PieChartIcon, Table, Percent, Banknote, Calendar, Coins, LineChart as LineChartIcon, TrendingUp, Rocket, Target } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, doc, setDoc, serverTimestamp, collection } from 'firebase/firestore';
 
-// --- Firebase Configuration ---
-// IMPORTANT: Replace this with your own Firebase project configuration!
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBgwrGcN2CLpze71sDx-Qe1G66pIDoDozc",
-  authDomain: "calclulator-app.firebaseapp.com",
-  projectId: "calclulator-app",
-  storageBucket: "calclulator-app.firebasestorage.app",
-  messagingSenderId: "962890227805",
-  appId: "1:962890227805:web:7c8be3da041fe0d9a1adb4",
-  measurementId: "G-1YE0Z04CDT"
-};
-
-// --- Initialize Firebase ---
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-// --- Translation Data (remains the same) ---
+// --- Translation Data ---
 const translations = {
     en: {
         suiteTitle: "Financial Calculator Suite",
@@ -35,9 +14,6 @@ const translations = {
         prepaymentTab: "Prepayment",
         calculate: "Calculate",
         rupeesOnly: "Rupees Only",
-        loginWithGoogle: "Login with Google",
-        logout: "Logout",
-        welcome: "Welcome",
         // Interest Calculator
         interestCalcTitle: "Interest Calculator",
         simpleInterest: "Simple Interest",
@@ -147,7 +123,6 @@ const translations = {
         errorMembers: "Number of members must be a whole number.",
         errorPrepayment: "Prepayment amount must be less than the loan amount.",
         enterDetails: "Enter details to calculate.",
-        dataSaved: "Calculation saved to your account.",
     },
     te: {
         suiteTitle: "ఫైనాన్షియల్ కాలిక్యులేటర్ సూట్",
@@ -159,9 +134,6 @@ const translations = {
         prepaymentTab: "ముందస్తు చెల్లింపు",
         calculate: "లెక్కించు",
         rupeesOnly: "రూపాయలు మాత్రమే",
-        loginWithGoogle: "Googleతో లాగిన్ అవ్వండి",
-        logout: "లాగ్ అవుట్",
-        welcome: "స్వాగతం",
         interestCalcTitle: "వడ్డీ కాలిక్యులేటర్",
         simpleInterest: "సాధారణ వడ్డీ",
         compoundInterest: "చక్రవడ్డీ",
@@ -265,7 +237,6 @@ const translations = {
         errorMembers: "సభ్యుల సంఖ్య పూర్ణ సంఖ్య అయి ఉండాలి.",
         errorPrepayment: "ముందస్తు చెల్లింపు మొత్తం లోన్ మొత్తం కంటే తక్కువగా ఉండాలి.",
         enterDetails: "లెక్కించడానికి వివరాలను నమోదు చేయండి.",
-        dataSaved: "లెక్కింపు మీ ఖాతాలో సేవ్ చేయబడింది.",
     }
 };
 
@@ -325,24 +296,6 @@ function toTeluguWords(numStr) {
     result += numToWords(Math.floor((num / 100) % 10), powers[0]);
     result += numToWords(num % 100, '');
     return result.trim().replace(/\s+/g, ' ');
-};
-
-// --- Firestore Helper ---
-const saveCalculation = async (user, calcType, data) => {
-    if (!user) return;
-    try {
-        const calcData = {
-            ...data,
-            userId: user.uid,
-            timestamp: serverTimestamp()
-        };
-        // Create a new document in a subcollection for the user
-        const userCalculationsRef = collection(db, "users", user.uid, "calculations");
-        await addDoc(userCalculationsRef, { type: calcType, ...calcData });
-        console.log("Calculation saved successfully!");
-    } catch (error) {
-        console.error("Error saving calculation: ", error);
-    }
 };
 
 // --- Common UI Components ---
@@ -418,7 +371,7 @@ const ResultCard = ({ label, value, isHighlighted = false, words, lang, subValue
 );
 
 // --- Interest Calculator ---
-const InterestCalculator = ({t, lang, user}) => {
+const InterestCalculator = ({t, lang}) => {
     const [mode, setMode] = useState('SIMPLE');
     const [principal, setPrincipal] = useState('');
     const [rate, setRate] = useState('');
@@ -430,12 +383,8 @@ const InterestCalculator = ({t, lang, user}) => {
     const [frequency, setFrequency] = useState('1');
     const [error, setError] = useState('');
     const [results, setResults] = useState(null);
-    const [notification, setNotification] = useState('');
 
-    const showNotification = (message) => {
-        setNotification(message);
-        setTimeout(() => setNotification(''), 3000);
-    };
+    const compoundingFrequencies = {'12': 'Monthly', '4': 'Quarterly', '2': 'Half-Yearly', '1': 'Annually' };
 
     const handleModeChange = (newMode) => {
         setMode(newMode); 
@@ -447,45 +396,57 @@ const InterestCalculator = ({t, lang, user}) => {
         setTenure('');
     }
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = (e) => {
         e.preventDefault(); 
         setResults(null);
         const p = parseFloat(principal);
         const t_val = parseFloat(tenure);
+
         let tenureInYears;
-        if (mode === 'COMPOUND') { tenureInYears = t_val; } 
-        else {
+        if (mode === 'COMPOUND') {
+            tenureInYears = t_val;
+        } else {
              switch(tenureType) {
                 case 'Months': tenureInYears = t_val / 12; break;
                 case 'Days': tenureInYears = t_val / 365; break;
                 default: tenureInYears = t_val;
             }
         }
-        if (isNaN(p) || p <= 0 || isNaN(t_val) || t_val <= 0) { setError(t.errorGeneric); return; }
         
-        let calcData = {};
+        if (isNaN(p) || p <= 0 || isNaN(t_val) || t_val <= 0) {
+            setError(t.errorGeneric); return;
+        }
+        
         if (mode === 'FIND_RATE') {
             const finalAmount = parseFloat(finalAmountInput);
-            if (isNaN(finalAmount) || finalAmount <= 0) { setError(t.errorGeneric); return; }
+            if (isNaN(finalAmount) || finalAmount <= 0) {
+                 setError(t.errorGeneric); return;
+            }
             let i_amt;
             if (findRateInputType === 'total') {
-                if (finalAmount <= p) { setError(t.errorTotalAmount); return; }
+                if (finalAmount <= p) {
+                    setError(t.errorTotalAmount); return;
+                }
                 i_amt = finalAmount - p;
-            } else { i_amt = finalAmount; }
+            } else {
+                i_amt = finalAmount;
+            }
             setError('');
             const calculatedRate = (i_amt * 100) / (p * tenureInYears);
-            const res = { mode: 'FIND_RATE', principal: p, interestAmount: i_amt, tenureInYears, annualRate: calculatedRate };
-            setResults(res);
-            calcData = { inputs: { principal: p, amount: finalAmount, tenure: t_val, tenureUnit: tenureType, inputType: findRateInputType }, results: res };
+            setResults({
+                mode: 'FIND_RATE',
+                principal: p,
+                interestAmount: i_amt,
+                tenureInYears,
+                annualRate: calculatedRate
+            });
         } else if (mode === 'SIMPLE') {
             const r = parseFloat(rate);
             if(isNaN(r) || r < 0) { setError(t.errorGeneric); return; }
             setError('');
             const annualRate = interestType === '%' ? r : r * 12;
             const totalInterest = (p * annualRate * tenureInYears) / 100;
-            const res = { mode: 'SIMPLE', principal: p, totalInterest, totalAmount: p + totalInterest, tenureInYears, annualRate};
-            setResults(res);
-            calcData = { inputs: { principal: p, rate: r, rateType: interestType, tenure: t_val, tenureUnit: tenureType }, results: res };
+            setResults({ mode: 'SIMPLE', principal: p, totalInterest, totalAmount: p + totalInterest, tenureInYears, annualRate});
         } else { // COMPOUND
             const r = parseFloat(rate);
             if(isNaN(r) || r < 0) { setError(t.errorGeneric); return; }
@@ -494,14 +455,7 @@ const InterestCalculator = ({t, lang, user}) => {
             const annualRate = interestType === '%' ? r : r * 12;
             const totalAmount = p * Math.pow((1 + (annualRate / 100) / n), n * t_val);
             const totalInterest = totalAmount - p;
-            const res = { mode: 'COMPOUND', principal: p, totalInterest, totalAmount, tenureInYears: t_val, annualRate };
-            setResults(res);
-            calcData = { inputs: { principal: p, rate: r, rateType: interestType, tenure: t_val, compounding: frequency }, results: res };
-        }
-
-        if (user && Object.keys(calcData).length > 0) {
-            await saveCalculation(user, `Interest_${mode}`, calcData);
-            showNotification(t.dataSaved);
+            setResults({ mode: 'COMPOUND', principal: p, totalInterest, totalAmount, tenureInYears: t_val, annualRate });
         }
     };
     
@@ -517,10 +471,11 @@ const InterestCalculator = ({t, lang, user}) => {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="bg-white/60 backdrop-blur-sm p-6 sm:p-8 rounded-xl shadow-md border border-gray-200">
-                {notification && <div className="absolute top-0 right-0 mt-4 mr-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg">{notification}</div>}
                 <form onSubmit={handleSubmit} className="space-y-5">
                     <ToggleButton options={{'SIMPLE': t.simpleInterest, 'COMPOUND': t.compoundInterest, 'FIND_RATE': t.findRate}} selected={mode} onSelect={handleModeChange}/>
+                    
                     <AmountInput label={t.principalAmount} id="i-principal" value={principal} onChange={(e) => setPrincipal(e.target.value)} placeholder={t.principalPlaceholder} icon={Banknote} lang={lang} />
+                    
                     {mode === 'FIND_RATE' ? (
                         <>
                             <div>
@@ -543,6 +498,7 @@ const InterestCalculator = ({t, lang, user}) => {
                             <div className="col-span-1"><CustomSelect label="Type" value={interestType} onChange={setInterestType} options={{ '%': '%', '₹': '₹' }} /></div>
                         </div>
                     )}
+
                     {mode === 'COMPOUND' ? (
                         <>
                             <InputField label={`${t.tenure} (in Years)`} id="ci-tenure" value={tenure} onChange={(e) => setTenure(e.target.value)} placeholder={t.tenurePlaceholder} icon={Calendar}/>
@@ -587,67 +543,16 @@ const InterestCalculator = ({t, lang, user}) => {
     );
 };
 
-// ... other calculators (EMI, ChitFund, SIP, Prepayment) remain the same but should be passed the `user` prop
-// Example for EMICalculator (apply similarly to others)
-const EMICalculator = ({t, lang, user}) => {
-    // ... existing state ...
-    const handleSubmit = async (e) => {
-        // ... existing logic ...
-        // After setResults(...)
-        if (user) {
-            await saveCalculation(user, 'EMI', { inputs: { principal, rate, tenure, tenureType }, results });
-        }
-    };
-    // ... rest of the component
-    return (
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-            {/* JSX remains the same */}
-        </div>
-    )
-};
-const ChitFundCalculator = ({t, lang, user}) => {
-    // Add user prop and saving logic similarly
-    return (<div>Chit Fund</div>);
-}
-const SIPCalculator = ({t, lang, user}) => {
-    // Add user prop and saving logic similarly
-    return (<div>SIP</div>);
-}
-const PrepaymentCalculator = ({t, lang, user}) => {
-    // Add user prop and saving logic similarly
-    return (<div>Prepayment</div>);
-}
+const EMICalculator = ({t, lang}) => { /* Placeholder: Needs full implementation */ return (<div>EMI</div>); };
+const ChitFundCalculator = ({t, lang}) => { /* Placeholder: Needs full implementation */ return (<div>Chit Fund</div>);};
+const SIPCalculator = ({t, lang}) => { /* Placeholder: Needs full implementation */ return (<div>SIP</div>);};
+const PrepaymentCalculator = ({t, lang}) => { /* Placeholder: Needs full implementation */ return (<div>Prepayment</div>);};
 
 
 // --- Main App Component ---
 export default function App() {
     const [lang, setLang] = useState('en');
-    const [user, setUser] = useState(null);
     const t = translations[lang];
-
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-            setUser(currentUser);
-        });
-        return () => unsubscribe();
-    }, []);
-
-    const handleGoogleLogin = async () => {
-        const provider = new GoogleAuthProvider();
-        try {
-            await signInWithPopup(auth, provider);
-        } catch (error) {
-            console.error("Authentication error:", error);
-        }
-    };
-
-    const handleLogout = async () => {
-        try {
-            await signOut(auth);
-        } catch (error) {
-            console.error("Logout error:", error);
-        }
-    };
 
     const TABS = {
         INTEREST: { name: t.interestTab, component: InterestCalculator, icon: Target },
@@ -657,6 +562,7 @@ export default function App() {
         CHIT: { name: t.chitTab, component: ChitFundCalculator, icon: Banknote },
     };
     const [activeTab, setActiveTab] = useState('INTEREST');
+
     const ActiveComponent = TABS[activeTab].component;
     
     const LanguageToggle = () => (
@@ -666,31 +572,12 @@ export default function App() {
         </div>
     );
 
-    const AuthControl = () => (
-        <div className="absolute top-4 right-4 z-10 flex items-center gap-4">
-             <LanguageToggle />
-            {user ? (
-                <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-700 hidden sm:block">{t.welcome}, {user.displayName.split(' ')[0]}</span>
-                    <User className="h-6 w-6 text-gray-600 sm:hidden"/>
-                    <button onClick={handleLogout} className="flex items-center gap-2 bg-red-500 text-white px-3 py-1.5 rounded-full shadow-md hover:bg-red-600 transition">
-                       <LogOut className="h-4 w-4" />
-                       <span className="hidden sm:inline">{t.logout}</span>
-                    </button>
-                </div>
-            ) : (
-                <button onClick={handleGoogleLogin} className="flex items-center gap-2 bg-white text-gray-700 px-4 py-1.5 rounded-full shadow-md hover:bg-gray-100 transition border border-gray-200">
-                    <LogIn className="h-5 w-5 text-indigo-500"/>
-                    <span className="font-medium">{t.loginWithGoogle}</span>
-                </button>
-            )}
-        </div>
-    );
-
     return (
         <div className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 min-h-screen p-4 sm:p-6 font-sans relative">
-            <AuthControl />
-            <header className="text-center mb-6 pt-20">
+            <div className="absolute top-4 right-4 z-20">
+                <LanguageToggle />
+            </div>
+            <header className="text-center mb-6 pt-8 sm:pt-12">
                 <h1 className="text-4xl sm:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600 py-2">{t.suiteTitle}</h1>
                 <p className="text-md text-gray-600 mt-2">{t.suiteDescription}</p>
             </header>
@@ -716,14 +603,13 @@ export default function App() {
                 </div>
 
                 <div className="transition-opacity duration-300">
-                    <ActiveComponent t={t} lang={lang} user={user} />
+                    <ActiveComponent t={t} lang={lang} />
                 </div>
             </div>
              <footer className="text-center mt-12 pb-4">
                 <p className="text-sm text-gray-500">
                     Calculations are for illustrative purposes. Please consult a financial advisor.
                 </p>
-                 {user && <p className="text-xs text-gray-400 mt-1">Logged in as {user.email}</p>}
             </footer>
         </div>
     );
